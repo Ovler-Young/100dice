@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动掷骰子模拟器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-7xl w-full bg-white rounded-3xl shadow-lg overflow-hidden">
+        <div class="p-6 md:p-8">
+            <h1 class="text-3xl font-bold text-black mb-2 text-center">高级自动掷骰子模拟器</h1>
+            <p class="text-black opacity-70 text-center mb-8">从 [0, 100] 开始，每次掷出 x 后，下一次范围变为 [x, 100]，直到 x = 100</p>
+            
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <!-- 左侧控制面板 -->
+                <div class="xl:col-span-1">
+                    <!-- 骰子显示区域 -->
+                    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-6 text-center relative overflow-hidden mb-6">
+                        <div class="relative z-10">
+                            <span class="text-white opacity-80 block mb-2">当前掷出</span>
+                            <div class="dice-container mb-4 flex justify-center items-center">
+                                <div id="dice" class="w-32 h-32 bg-white rounded-2xl shadow-lg flex items-center justify-center text-6xl font-bold text-black transition-all duration-500">
+                                    0
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-white">
+                                <span id="lowerBound">0</span>
+                                <span class="opacity-70">到</span>
+                                <span>100</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 控制按钮区域 -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-black">控制面板</h2>
+                            <button id="resetBtn" class="text-black border border-gray-200 rounded-lg px-4 py-2 hover:bg-gray-50 transition-colors">
+                                <i class="fas fa-redo-alt mr-2"></i>重置
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-black opacity-70 block mb-2">掷骰间隔 (毫秒)</label>
+                                <input type="range" id="speedRange" min="200" max="2000" value="800" class="w-full">
+                                <div class="flex justify-between text-black opacity-50 text-sm">
+                                    <span>快</span>
+                                    <span>慢</span>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <button id="toggleBtn" class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center">
+                                    <i class="fas fa-play mr-2"></i>
+                                    <span>开始掷骰</span>
+                                </button>
+                                
+                                <button id="autoRepeatBtn" class="flex-1 border border-gray-200 text-black py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center">
+                                    <i class="fas fa-sync-alt mr-2"></i>
+                                    <span>重复运行</span>
+                                </button>
+                            </div>
+                            
+                            <div>
+                                <label class="text-black opacity-70 block mb-2">重复次数</label>
+                                <input type="number" id="repeatCount" value="100" min="1" max="1000" class="w-full border border-gray-200 rounded-lg p-2 text-black">
+                            </div>
+                            
+                            <div>
+                                <label class="text-black opacity-70 block mb-2">并发数量</label>
+                                <input type="number" id="concurrentCount" value="10" min="1" max="50" class="w-full border border-gray-200 rounded-lg p-2 text-black">
+                            </div>
+                            
+                            <div>
+                                <label class="text-black opacity-70 block mb-2">趋势线显示数量</label>
+                                <input type="number" id="trendLineCount" value="10" min="1" max="20" class="w-full border border-gray-200 rounded-lg p-2 text-black">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计数据区域 -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <h2 class="text-xl font-bold text-black mb-4">统计数据</h2>
+                        <div class="space-y-4">
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">当前模拟</span>
+                                <span class="text-black font-bold" id="currentSimulation">1</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">已完成模拟</span>
+                                <span class="text-black font-bold" id="completedSimulations">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">总投掷次数</span>
+                                <span class="text-black font-bold" id="rollCount">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">平均到达 100 的次数</span>
+                                <span class="text-black font-bold" id="avgRollsTo100">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">中位数</span>
+                                <span class="text-black font-bold" id="medianRolls">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">标准差</span>
+                                <span class="text-black font-bold" id="stdDev">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">理论期望值</span>
+                                <span class="text-black font-bold" id="theoreticalExpectation">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">最少投掷次数</span>
+                                <span class="text-black font-bold" id="minRolls">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-black opacity-70">最多投掷次数</span>
+                                <span class="text-black font-bold" id="maxRolls">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 中间图表区域 -->
+                <div class="xl:col-span-2">
+                    <!-- 当前投掷图表 -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-black">当前投掷趋势</h2>
+                            <div class="text-black opacity-70 flex items-center">
+                                <span class="font-bold mr-2" id="currentRollDisplay">0</span>
+                                <span>次投掷</span>
+                            </div>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="diceChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 历史趋势图表 -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-black">历史趋势对比</h2>
+                            <div class="text-black flex items-center">
+                                <span class="font-bold mr-1" id="trendLinesCount">0</span>
+                                <span class="opacity-70">条记录</span>
+                                <button id="clearTrendsBtn" class="ml-4 text-black opacity-70 hover:opacity-100 text-sm">
+                                    清空趋势
+                                </button>
+                            </div>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="historyTrendChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计分布图表 -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-black">投掷次数分布</h2>
+                            <div class="text-black opacity-70">
+                                完成模拟: <span id="distributionCompletedCount" class="font-bold">0</span>
+                            </div>
+                        </div>
+                        <div class="h-64">
+                            <canvas id="distributionChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 历史记录区域 -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold text-black">历史记录</h2>
+                            <button id="clearHistoryBtn" class="text-black text-sm opacity-70 hover:opacity-100">
+                                清空历史
+                            </button>
+                        </div>
+                        <div id="historyContainer" class="h-640 overflow-x-auto p-2">
+                            <div class="flex space-x-4" id="historyColumns">
+                                <!-- 历史记录将在这里动态插入 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化变量
+        let rollHistory = [];
+        let currentLower = 0;
+        let isRolling = false;
+        let isAutoRepeating = false;
+        let rollInterval;
+        let simulationResults = [];
+        let simulationHistories = [];
+        let currentSimulationIndex = 1;
+        let concurrentSimulations = [];
+        let myChart, historyTrendChart, distributionChart;
+        let isProcessingBatch = false;
+        let updateStatsTimer = null;
+        
+        // DOM 元素
+        const diceElement = document.getElementById('dice');
+        const lowerBoundElement = document.getElementById('lowerBound');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const autoRepeatBtn = document.getElementById('autoRepeatBtn');
+        const repeatCountInput = document.getElementById('repeatCount');
+        const concurrentCountInput = document.getElementById('concurrentCount');
+        const trendLineCountInput = document.getElementById('trendLineCount');
+        const rollCountElement = document.getElementById('rollCount');
+        const currentRollDisplay = document.getElementById('currentRollDisplay');
+        const currentSimulationElement = document.getElementById('currentSimulation');
+        const completedSimulationsElement = document.getElementById('completedSimulations');
+        const distributionCompletedCountElement = document.getElementById('distributionCompletedCount');
+        const avgRollsTo100Element = document.getElementById('avgRollsTo100');
+        const medianRollsElement = document.getElementById('medianRolls');
+        const stdDevElement = document.getElementById('stdDev');
+        const theoreticalExpectationElement = document.getElementById('theoreticalExpectation');
+        const minRollsElement = document.getElementById('minRolls');
+        const maxRollsElement = document.getElementById('maxRolls');
+        const historyColumnsElement = document.getElementById('historyColumns');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const clearTrendsBtn = document.getElementById('clearTrendsBtn');
+        const trendLinesCountElement = document.getElementById('trendLinesCount');
+        const speedRange = document.getElementById('speedRange');
+        
+        // 初始化图表
+        const ctx = document.getElementById('diceChart').getContext('2d');
+        const historyTrendCtx = document.getElementById('historyTrendChart').getContext('2d');
+        const distCtx = document.getElementById('distributionChart').getContext('2d');
+        initCharts();
+        
+        // 计算并显示理论期望值
+        const theoreticalExpected = calculateTheoreticalExpectation();
+        theoreticalExpectationElement.textContent = theoreticalExpected;
+        
+        // 预先计算理论分布
+        const maxK = 50;
+        const theoreticalProbs = calculateTheoreticalDistribution(maxK);
+        
+        // 事件监听
+        toggleBtn.addEventListener('click', toggleRolling);
+        resetBtn.addEventListener('click', resetSimulation);
+        autoRepeatBtn.addEventListener('click', toggleAutoRepeat);
+        clearHistoryBtn.addEventListener('click', clearHistory);
+        clearTrendsBtn.addEventListener('click', clearTrends);
+        speedRange.addEventListener('input', updateSpeed);
+        trendLineCountInput.addEventListener('input', updateTrendLineDisplay);
+        
+        // 初始化图表函数
+        function initCharts() {
+            const gradientFill = ctx.createLinearGradient(0, 0, 0, 400);
+            gradientFill.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
+            gradientFill.addColorStop(1, 'rgba(79, 70, 229, 0)');
+            
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '骰子值',
+                        data: [],
+                        borderColor: 'rgb(79, 70, 229)',
+                        backgroundColor: gradientFill,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointBackgroundColor: 'rgb(79, 70, 229)',
+                        pointBorderColor: 'white',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                title: () => '掷骰结果',
+                                label: context => `第 ${context.label} 次: ${context.raw}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            ticks: { color: 'rgba(0, 0, 0, 0.7)' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            ticks: { color: 'rgba(0, 0, 0, 0.7)' }
+                        }
+                    },
+                    animation: {
+                        duration: 800,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+            
+            historyTrendChart = new Chart(historyTrendCtx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: 'rgba(0, 0, 0, 0.7)', boxWidth: 12, padding: 10 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 10
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            ticks: { color: 'rgba(0, 0, 0, 0.7)' },
+                            title: { display: true, text: '骰子值', color: 'rgba(0, 0, 0, 0.7)' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            ticks: { color: 'rgba(0, 0, 0, 0.7)' },
+                            title: { display: true, text: '掷骰次数', color: 'rgba(0, 0, 0, 0.7)' }
+                        }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                    elements: { point: { radius: 0 }, line: { tension: 0.4 } }
+                }
+            });
+            
+            distributionChart = new Chart(distCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '实际分布',
+                            data: [],
+                            backgroundColor: 'rgba(79, 70, 229, 0.7)',
+                            borderColor: 'rgb(79, 70, 229)',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: '理论分布',
+                            data: [],
+                            backgroundColor: 'rgba(229, 70, 70, 0.2)',
+                            borderColor: 'rgb(229, 70, 70)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            type: 'bar'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: 'rgba(0, 0, 0, 0.7)' } },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: 'white',
+                            bodyColor: 'white',
+                            padding: 10
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            ticks: { color: 'rgba(0, 0, 0, 0.7)' },
+                            title: { display: true, text: '频率', color: 'rgba(0, 0, 0, 0.7)' }
+                        },
+                        x: {
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            ticks: { color: 'rgba(0, 0, 0, 0.7)' },
+                            title: { display: true, text: '投掷次数', color: 'rgba(0, 0, 0, 0.7)' }
+                        }
+                    },
+                    animation: { duration: 500 }
+                }
+            });
+        }
+        
+        // 生成随机颜色
+        function getRandomColor() {
+            const hue = Math.floor(Math.random() * 360);
+            return `hsl(${hue}, 70%, 60%)`;
+        }
+        
+        // 单次掷骰函数
+        function singleRollDice(lowerValue) {
+            return Math.floor(Math.random() * (101 - lowerValue)) + lowerValue;
+        }
+        
+        // 前台展示掷骰动画
+        function animateDiceRoll(result, previousLower) {
+            diceElement.classList.add('scale-90', 'rotate-12', 'bg-gray-100');
+            setTimeout(() => {
+                diceElement.textContent = result;
+                diceElement.classList.remove('scale-90', 'rotate-12', 'bg-gray-100');
+                currentLower = result;
+                lowerBoundElement.textContent = currentLower;
+                rollHistory.push(result);
+                updateChart();
+                rollCountElement.textContent = rollHistory.length;
+                currentRollDisplay.textContent = rollHistory.length;
+                if (result === 100) {
+                    diceElement.classList.add('scale-110');
+                    setTimeout(() => diceElement.classList.remove('scale-110'), 500);
+                }
+            }, 300);
+        }
+        
+        // 展示掷骰函数
+        function rollDice() {
+            if (currentLower >= 100) {
+                if (isAutoRepeating) {
+                    finishCurrentSimulation();
+                    setTimeout(startNextSimulation, 50);
+                } else {
+                    stopRolling();
+                }
+                return;
+            }
+            const previousLower = currentLower;
+            const result = singleRollDice(currentLower);
+            animateDiceRoll(result, previousLower);
+            if (result === 100) {
+                if (isAutoRepeating) {
+                    finishCurrentSimulation();
+                    setTimeout(startNextSimulation, 50);
+                } else {
+                    stopRolling();
+                }
+            }
+        }
+        
+        // 后台运行完整模拟
+        function runFullSimulation() {
+            let lower = 0;
+            let history = [];
+            let rolls = 0;
+            while (lower < 100) {
+                rolls++;
+                lower = singleRollDice(lower);
+                history.push(lower);
+                if (lower === 100) break;
+            }
+            return { rolls, history };
+        }
+        
+        // 运行并发模拟
+        function runConcurrentSimulations() {
+            if (isProcessingBatch) return;
+            isProcessingBatch = true;
+            try {
+                const concurrentCount = parseInt(concurrentCountInput.value);
+                const repeatCount = parseInt(repeatCountInput.value);
+                const remainingCount = repeatCount - simulationResults.length;
+                if (remainingCount <= 0) {
+                    stopAutoRepeat();
+                    isProcessingBatch = false;
+                    return;
+                }
+                const batchSize = Math.min(concurrentCount, remainingCount);
+                const batchResults = [];
+                const batchHistories = [];
+                for (let i = 0; i < batchSize; i++) {
+                    const result = runFullSimulation();
+                    batchResults.push(result.rolls);
+                    batchHistories.push(result.history);
+                }
+                simulationResults.push(...batchResults);
+                simulationHistories.push(...batchHistories);
+                currentSimulationIndex = simulationResults.length + 1;
+                currentSimulationElement.textContent = currentSimulationIndex;
+                completedSimulationsElement.textContent = simulationResults.length;
+                distributionCompletedCountElement.textContent = simulationResults.length;
+                const maxTrendLines = parseInt(trendLineCountInput.value);
+                const trendLinesToAdd = Math.min(
+                    Math.ceil(batchHistories.length * 0.2),
+                    maxTrendLines - historyTrendChart.data.datasets.length
+                );
+                if (trendLinesToAdd > 0) {
+                    const indicesToAdd = [];
+                    for (let i = 0; i < trendLinesToAdd; i++) {
+                        let randIndex;
+                        do {
+                            randIndex = Math.floor(Math.random() * batchHistories.length);
+                        } while (indicesToAdd.includes(randIndex));
+                        indicesToAdd.push(randIndex);
+                        addHistoryTrendLine(batchHistories[randIndex]);
+                    }
+                }
+                if (batchResults.length > 0) {
+                    const randIndex = Math.floor(Math.random() * batchResults.length);
+                    addHistoryColumn(batchHistories[randIndex], simulationResults.length - batchResults.length + randIndex + 1);
+                }
+                clearTimeout(updateStatsTimer);
+                updateStatsTimer = setTimeout(() => {
+                    updateStatistics();
+                    updateDistributionChart();
+                }, 100);
+                if (simulationResults.length < repeatCount) {
+                    isProcessingBatch = false;
+                    requestAnimationFrame(() => setTimeout(runConcurrentSimulations, 0));
+                } else {
+                    isProcessingBatch = false;
+                    stopAutoRepeat();
+                }
+            } catch (error) {
+                console.error("模拟出错:", error);
+                isProcessingBatch = false;
+            }
+        }
+        
+        // 更新趋势线显示
+        function updateTrendLineDisplay() {
+            const maxLines = parseInt(trendLineCountInput.value);
+            while (historyTrendChart.data.datasets.length > maxLines) {
+                historyTrendChart.data.datasets.shift();
+            }
+            trendLinesCountElement.textContent = historyTrendChart.data.datasets.length;
+            historyTrendChart.update();
+        }
+        
+        // 添加历史趋势线
+        function addHistoryTrendLine(history) {
+            if (!history || history.length === 0) return;
+            const maxLines = parseInt(trendLineCountInput.value);
+            const color = getRandomColor();
+            const simulationNumber = simulationHistories.length;
+            if (historyTrendChart.data.datasets.length === 0) {
+                const maxLength = Math.max(...simulationHistories.map(h => h.length), history.length);
+                historyTrendChart.data.labels = Array.from({ length: maxLength }, (_, i) => i + 1);
+            }
+            while (historyTrendChart.data.datasets.length >= maxLines) {
+                historyTrendChart.data.datasets.shift();
+            }
+            historyTrendChart.data.datasets.push({
+                label: `#${simulationNumber}`,
+                data: history,
+                borderColor: color,
+                backgroundColor: color,
+                fill: false,
+                pointRadius: 0,
+                borderWidth: 2
+            });
+            trendLinesCountElement.textContent = historyTrendChart.data.datasets.length;
+            historyTrendChart.update();
+        }
+        
+        // 清空趋势图
+        function clearTrends() {
+            historyTrendChart.data.datasets = [];
+            trendLinesCountElement.textContent = "0";
+            historyTrendChart.update();
+        }
+        
+        // 完成当前模拟
+        function finishCurrentSimulation() {
+            if (rollHistory.length === 0) return;
+            simulationResults.push(rollHistory.length);
+            simulationHistories.push([...rollHistory]);
+            addHistoryTrendLine(rollHistory);
+            addHistoryColumn(rollHistory, simulationResults.length);
+            updateStatistics();
+            updateDistributionChart();
+            completedSimulationsElement.textContent = simulationResults.length;
+            distributionCompletedCountElement.textContent = simulationResults.length;
+        }
+        
+        // 开始下一次模拟
+        function startNextSimulation() {
+            if (currentSimulationIndex >= parseInt(repeatCountInput.value)) {
+                stopAutoRepeat();
+                return;
+            }
+            rollHistory = [];
+            currentLower = 0;
+            diceElement.textContent = '0';
+            lowerBoundElement.textContent = '0';
+            myChart.data.labels = [];
+            myChart.data.datasets[0].data = [];
+            myChart.update();
+            currentSimulationIndex++;
+            currentSimulationElement.textContent = currentSimulationIndex;
+            setTimeout(() => {
+                if (isAutoRepeating) rollDice();
+            }, 100);
+        }
+        
+        // 添加历史列
+        function addHistoryColumn(history, simulationNumber) {
+            if (!history || history.length === 0) return;
+            const column = document.createElement('div');
+            column.className = 'flex-none w-20 bg-gray-50 rounded-lg p-2';
+            const header = document.createElement('div');
+            header.className = 'text-center border-b border-gray-200';
+            header.innerHTML = `<span class="text-black font-bold">#${simulationNumber}</span>`;
+            column.appendChild(header);
+            const summary = document.createElement('div');
+            summary.innerHTML = `<span class="text-black">共 <span class="font-bold">${history.length}</span> 次</span>`;
+            summary.className = 'border-b border-gray-200 text-center';
+            column.appendChild(summary);
+            const resultContainer = document.createElement('div');
+            resultContainer.className = 'space-y-1 overflow-y-auto max-h-20000';
+            history.forEach((result, index) => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'flex justify-between items-center';
+                const rollNumberElem = document.createElement('span');
+                rollNumberElem.className = 'text-black opacity-70 text-sm';
+                rollNumberElem.textContent = `#${index + 1}`;
+                const resultValueElem = document.createElement('span');
+                resultValueElem.className = `text-black font-bold ${result === 100 ? 'text-indigo-600' : ''}`;
+                resultValueElem.textContent = result;
+                resultItem.appendChild(rollNumberElem);
+                resultItem.appendChild(resultValueElem);
+                resultContainer.appendChild(resultItem);
+            });
+            column.appendChild(resultContainer);
+            historyColumnsElement.prepend(column);
+            if (historyColumnsElement.children.length > 30) {
+                historyColumnsElement.removeChild(historyColumnsElement.lastChild);
+            }
+            document.getElementById('historyContainer').scrollLeft = 0;
+        }
+        
+        // 清空历史记录
+        function clearHistory() {
+            historyColumnsElement.innerHTML = '';
+        }
+        
+        // 更新图表
+        function updateChart() {
+            const labels = Array.from({ length: rollHistory.length }, (_, i) => i + 1);
+            myChart.data.labels = labels;
+            myChart.data.datasets[0].data = rollHistory;
+            myChart.update('normal');
+        }
+        
+        // 计算中位数
+        function calculateMedian(arr) {
+            if (arr.length === 0) return 0;
+            const sortedArr = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sortedArr.length / 2);
+            return sortedArr.length % 2 === 0 ? ((sortedArr[mid - 1] + sortedArr[mid]) / 2).toFixed(1) : sortedArr[mid].toFixed(1);
+        }
+        
+        // 计算标准差
+        function calculateStdDev(arr) {
+            if (arr.length <= 1) return 0;
+            const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+            const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+            return Math.sqrt(variance).toFixed(2);
+        }
+        
+        // 更新分布图表
+        function updateDistributionChart() {
+            if (simulationResults.length === 0) return;
+            const frequencyMap = {};
+            let maxRolls = 0;
+            simulationResults.forEach(rolls => {
+                frequencyMap[rolls] = (frequencyMap[rolls] || 0) + 1;
+                maxRolls = Math.max(maxRolls, rolls);
+            });
+            const labels = Array.from({ length: maxRolls }, (_, i) => i + 1);
+            const data = labels.map(label => frequencyMap[label] || 0);
+            const totalSimulations = simulationResults.length;
+            const theoreticalData = theoreticalProbs.slice(0, labels.length).map(p => p * totalSimulations);
+            distributionChart.data.labels = labels;
+            distributionChart.data.datasets[0].data = data;
+            distributionChart.data.datasets[1].data = theoreticalData;
+            distributionChart.update();
+        }
+        
+        // 计算理论期望值
+        function calculateTheoreticalExpectation() {
+            const expectedSteps = new Array(101).fill(0);
+            let sumAbove = 0;
+            for (let i = 99; i >= 0; i--) {
+                const denom = 101 - i;
+                expectedSteps[i] = (1 + sumAbove / denom) * (denom / (denom - 1));
+                sumAbove += expectedSteps[i];
+            }
+            return expectedSteps[0].toFixed(2);
+        }
+        
+        // 计算理论分布
+        function calculateTheoreticalDistribution(maxK) {
+            const f = Array.from({ length: 100 }, () => new Array(maxK + 1).fill(0));
+            for (let i = 0; i < 100; i++) {
+                f[i][1] = 1 / (101 - i);
+            }
+            for (let k = 2; k <= maxK; k++) {
+                for (let i = 0; i < 100; i++) {
+                    let sum = 0;
+                    const denom = 101 - i;
+                    for (let j = i; j < 100; j++) {
+                        sum += f[j][k - 1];
+                    }
+                    f[i][k] = sum / denom;
+                }
+            }
+            const distribution = [];
+            for (let k = 1; k <= maxK; k++) {
+                distribution.push(f[0][k]);
+            }
+            return distribution;
+        }
+        
+        // 更新统计数据
+        function updateStatistics() {
+            if (simulationResults.length === 0) return;
+            try {
+                const sum = simulationResults.reduce((a, b) => a + b, 0);
+                const avg = (sum / simulationResults.length).toFixed(2);
+                const median = calculateMedian(simulationResults);
+                const stdDev = calculateStdDev(simulationResults);
+                const min = Math.min(...simulationResults);
+                const max = Math.max(...simulationResults);
+                avgRollsTo100Element.textContent = avg;
+                medianRollsElement.textContent = median;
+                stdDevElement.textContent = stdDev;
+                minRollsElement.textContent = min;
+                maxRollsElement.textContent = max;
+            } catch (error) {
+                console.error("统计计算出错:", error);
+            }
+        }
+        
+        // 开始/停止掷骰
+        function toggleRolling() {
+            if (isRolling) stopRolling();
+            else startRolling();
+        }
+        
+        // 开始/停止自动重复
+        function toggleAutoRepeat() {
+            if (isAutoRepeating) stopAutoRepeat();
+            else startAutoRepeat();
+        }
+        
+        // 开始自动重复
+        function startAutoRepeat() {
+            isAutoRepeating = true;
+            autoRepeatBtn.innerHTML = '<i class="fas fa-stop mr-2"></i><span>停止重复</span>';
+            autoRepeatBtn.classList.add('bg-red-500', 'text-white', 'border-red-500');
+            resetSimulation();
+            simulationResults = [];
+            simulationHistories = [];
+            currentSimulationIndex = 1;
+            currentSimulationElement.textContent = currentSimulationIndex;
+            completedSimulationsElement.textContent = "0";
+            distributionCompletedCountElement.textContent = "0";
+            const concurrentCount = parseInt(concurrentCountInput.value);
+            if (concurrentCount > 1) {
+                isProcessingBatch = false;
+                setTimeout(runConcurrentSimulations, 0);
+            } else {
+                startRolling();
+            }
+        }
+        
+        // 停止自动重复
+        function stopAutoRepeat() {
+            isAutoRepeating = false;
+            autoRepeatBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i><span>重复运行</span>';
+            autoRepeatBtn.classList.remove('bg-red-500', 'text-white', 'border-red-500');
+            stopRolling();
+        }
+        
+        // 开始掷骰
+        function startRolling() {
+            if (currentLower >= 100) return;
+            isRolling = true;
+            toggleBtn.innerHTML = '<i class="fas fa-pause mr-2"></i><span>暂停掷骰</span>';
+            toggleBtn.classList.remove('from-indigo-500', 'to-purple-600');
+            toggleBtn.classList.add('from-red-500', 'to-orange-500');
+            const speed = parseInt(speedRange.value);
+            let lastRollTime = 0;
+            function rollFrame(timestamp) {
+                if (!isRolling) return;
+                if (timestamp - lastRollTime >= speed) {
+                    lastRollTime = timestamp;
+                    rollDice();
+                }
+                if (isRolling) requestAnimationFrame(rollFrame);
+            }
+            requestAnimationFrame(rollFrame);
+            rollDice();
+        }
+        
+        // 停止掷骰
+        function stopRolling() {
+            isRolling = false;
+            toggleBtn.innerHTML = '<i class="fas fa-play mr-2"></i><span>开始掷骰</span>';
+            toggleBtn.classList.remove('from-red-500', 'to-orange-500');
+            toggleBtn.classList.add('from-indigo-500', 'to-purple-600');
+        }
+        
+        // 重置模拟
+        function resetSimulation() {
+            stopRolling();
+            rollHistory = [];
+            currentLower = 0;
+            diceElement.textContent = '0';
+            lowerBoundElement.textContent = '0';
+            rollCountElement.textContent = '0';
+            currentRollDisplay.textContent = '0';
+            myChart.data.labels = [];
+            myChart.data.datasets[0].data = [];
+            myChart.update();
+            diceElement.classList.remove('scale-110');
+        }
+        
+        // 更新掷骰速度
+        function updateSpeed() {}
+    </script>
+</body>
+</html>
